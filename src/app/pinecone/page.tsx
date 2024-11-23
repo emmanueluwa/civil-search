@@ -18,6 +18,24 @@ type Props = {};
 
 const VectorDBPage = ({}: Props) => {
   const [isUploading, setIsUploading] = useState(false);
+
+  const [indexName, setIndexName] = useState("");
+  const [namespace, setNamespace] = useState("");
+
+  const onStartUpload = async () => {
+    const response = await fetch("api/update-database", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        indexName,
+        namespace,
+      }),
+    });
+
+    // await processStreamedProgress(response);
+  };
   return (
     <main className="flex flex-col items-center p-24">
       <Card>
@@ -46,6 +64,8 @@ const VectorDBPage = ({}: Props) => {
                 <div className="grid gap-2">
                   <Label>Index Name</Label>
                   <Input
+                    value={indexName}
+                    onChange={(e) => setIndexName(e.target.value)}
                     placeholder="index name"
                     disabled={isUploading}
                     className="disabled:cursor-default"
@@ -54,6 +74,8 @@ const VectorDBPage = ({}: Props) => {
                 <div className="grid gap-2">
                   <Label>Namespace</Label>
                   <Input
+                    value={namespace}
+                    onChange={(e) => setNamespace(e.target.value)}
                     placeholder="namespace"
                     disabled={isUploading}
                     className="disabled:cursor-default"
@@ -62,6 +84,7 @@ const VectorDBPage = ({}: Props) => {
               </div>
             </div>
             <Button
+              onClick={onStartUpload}
               variant={"outline"}
               className="w-full h-full"
               disabled={isUploading}
