@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eurocode 2 RAG Knowledge Base
 
-## Getting Started
+A powerful Retrieval Augmented Generation (RAG) application designed specifically for civil and structural engineers to quickly search, analyze, and retrieve information from Eurocode 2 documentation. Built using Pinecone, Next.js, and LangChain.
 
-First, run the development server:
+## 🚀 Features
+
+- **Intelligent Document Search**: Quickly find relevant sections from Eurocode 2 using natural language queries
+- **Context-Aware Responses**: Get accurate answers with direct references to specific sections of the standard
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js with Tailwind CSS and Shadcn UI
+- **Vector Database**: Pinecone
+- **Document Processing**: LangChain
+- **Embedding Generation**: Transformers.js (Hugging Face models)
+- **UI Framework**: Tailwind CSS & Shadcn UI
+
+## 🔧 Installation
+
+1. Clone the repository:
+
+```bash
+git clone [https://github.com/emmanueluwa/civil-search]
+cd [civil-search]
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your Pinecone API key and other required variables to `.env.local`
+
+4. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 💡 Use Cases
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Quick Reference**: Instantly find specific clauses and requirements from Eurocode 2
+- **Design Validation**: Cross-reference design decisions with standard requirements
+- **Knowledge Management**: Create a searchable knowledge base of structural design standards
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔄 How It Works
 
-## Learn More
+1. **Document Upload**: Upload PDF versions of Eurocode 2 and related documentation
+2. **Processing Pipeline**:
+   - Document chunking using LangChain text splitters
+   - Embedding generation with Transformers.js
+   - Vector storage in Pinecone database
+3. **Retrieval**: Use natural language queries to find relevant sections
+4. **Response Generation**: Get contextually relevant answers with direct references
 
-To learn more about Next.js, take a look at the following resources:
+## 🎯 Target Users
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Civil Engineers
+- Structural Engineers
+- Engineering Students
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🙏 Acknowledgments
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Utilizes the Mixedbread AI embedding model
+- Built with Next.js and Pinecone
