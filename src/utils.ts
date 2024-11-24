@@ -1,6 +1,12 @@
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { FeatureExtractionPipeline, pipeline, env } from "@xenova/transformers";
-import { Pinecone } from "@pinecone-database/pinecone";
+import {
+  Pinecone,
+  PineconeRecord,
+  RecordMetadata,
+} from "@pinecone-database/pinecone";
 import { Document } from "langchain/document";
+import { batchSize } from "./config";
 
 // Skip local model check
 env.allowLocalModels = false;
@@ -73,12 +79,87 @@ export async function updateVectorDB(
   }
 }
 
-function processDocument(
+async function processDocument(
   client: Pinecone,
   indexName: string,
   namespace: string,
   doc: Document<Record<string, any>>,
   extractor: FeatureExtractionPipeline
 ) {
-  console.log(doc);
+  const splitter = new RecursiveCharacterTextSplitter();
+
+  const documentChunks = await splitter.splitText(doc.pageContent);
+
+  const filename = getFilename(doc.metadata.source);
+
+  console.log("number of chunks! ", documentChunks.length);
+  let chunkBatchIndex = 0;
+
+  while (documentChunks.length) {
+    chunkBatchIndex++;
+    const chunkBatch = documentChunks.splice(0, batchSize);
+
+    await processOneBatch(
+      client,
+      indexName,
+      namespace,
+      extractor,
+      chunkBatch,
+      chunkBatchIndex,
+      filename
+    );
+  }
+}
+
+function getFilename(filename: string): string {
+  const document = filename.substring(filename.lastIndexOf("/") + 1);
+
+  return document.substring(0, document.lastIndexOf(".")) || document;
+}
+
+async function processOneBatch(
+  client: Pinecone,
+  indexName: string,
+  namespace: string,
+  extractor: FeatureExtractionPipeline,
+  chunkBatch: string[],
+  chunkBatchIndex: number,
+  filename: string
+) {
+  //cleaning chunkbatch and generate embeddings
+  const output = await extractor(
+    chunkBatch.map((str) => str.replace(/\n/g, " ")),
+    {
+      //consistent size
+      pooling: "cls",
+    }
+  );
+
+  //convert tensor to js array
+  const embeddingsBatch = output.tolist();
+  let vectorBatch: PineconeRecord<RecordMetadata>[] = [];
+
+  for (let i = 0; i < chunkBatch.length; i++) {
+    //extract chunk and corresponding embedding
+    const chunk = chunkBatch[i];
+    const embedding = embeddingsBatch[i];
+
+    //save embedding in vector store 1024 dim space, text chunk is stored as metadata
+    const vector: PineconeRecord<RecordMetadata> = {
+      id: `${filename}-${chunkBatchIndex}-${i}`,
+      values: embedding,
+      metadata: {
+        chunk,
+      },
+    };
+
+    vectorBatch.push(vector);
+  }
+
+  const index = client.index(indexName).namespace(namespace);
+
+  await index.upsert(vectorBatch);
+  console.log("upserting index.. :)");
+
+  vectorBatch = [];
 }
