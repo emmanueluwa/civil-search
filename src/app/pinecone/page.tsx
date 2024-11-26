@@ -25,6 +25,21 @@ const VectorDBPage = ({}: Props) => {
   const [filename, setFilename] = useState("");
   const [progress, setProgress] = useState(0);
 
+  const [fileListAsText, setFileListAsText] = useState("");
+
+  const onFileListRefresh = async () => {
+    setFileListAsText("");
+    const response = await fetch("api/get-file-list", {
+      method: "GET",
+    });
+    const filenames = await response.json();
+
+    const resultString = (filenames as [])
+      .map((filename) => `📄 ${filename}`)
+      .join("\n");
+    setFileListAsText(resultString);
+  };
+
   const onStartUpload = async () => {
     setProgress(0);
     setFilename("");
@@ -49,7 +64,6 @@ const VectorDBPage = ({}: Props) => {
   };
 
   async function processStreamedProgress(response: Response) {
-    console.log("Processing streamed progress"); // Add this
     const reader = response.body?.getReader();
     if (!reader) return;
 
@@ -108,6 +122,7 @@ const VectorDBPage = ({}: Props) => {
             <div className="col-span-2 grid gap-4 border rounded-lg p-6">
               <div className="gap-4 relative">
                 <Button
+                  onClick={onFileListRefresh}
                   className="absolute -right-4 -top-4"
                   variant={"ghost"}
                   size={"icon"}
@@ -117,6 +132,7 @@ const VectorDBPage = ({}: Props) => {
                 <Label>Files:</Label>
                 <Textarea
                   readOnly
+                  value={fileListAsText}
                   className="min-h-24 resize-none border p-3 shadow-none disabled:cursor-default focus-visible:ring-0 text-sm text-muted-foreground"
                 />
               </div>

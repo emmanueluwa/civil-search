@@ -15,7 +15,6 @@ export async function POST(req: Request, res: NextApiResponse) {
         const body = await req.json();
         const { indexName, namespace } = body;
 
-        // Load documents (adjust path and loaders as needed)
         const loader = new DirectoryLoader("src/documents", {
           ".pdf": (path: string) => new PDFLoader(path, { splitPages: false }),
           ".txt": (path: string) => new TextLoader(path),
