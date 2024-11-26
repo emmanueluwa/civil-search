@@ -9,7 +9,7 @@ import { Document } from "langchain/document";
 import { batchSize } from "./config";
 
 // Skip local model check
-env.allowLocalModels = false;
+// env.allowLocalModels = false;
 
 type DownloadProgress = {
   status: string;
@@ -26,6 +26,15 @@ type ProgressCallback = (
   isComplete: boolean
 ) => void;
 
+let callback: (
+  filename: string,
+  totalChunks: number,
+  chunksUpserted: number,
+  isComplete: boolean
+) => void;
+let totalDocChunks: number;
+let totalDocChunksUpserted: number;
+
 export async function updateVectorDB(
   client: Pinecone,
   indexName: string,
@@ -38,6 +47,10 @@ export async function updateVectorDB(
     isComplete: boolean
   ) => void
 ) {
+  callback = progressCallback;
+  totalDocChunks = 0;
+  totalDocChunksUpserted = 0;
+
   const modelname = "mixedbread-ai/mxbai-embed-large-v1";
 
   //track model download progress
@@ -69,10 +82,14 @@ export async function updateVectorDB(
       progress_callback: onModelDownloadProgress,
     });
 
-    console.log("pipeline created successfully", extractor);
+    console.log("pipeline created successfully");
 
     for (const doc of docs) {
       await processDocument(client, indexName, namespace, doc, extractor);
+    }
+
+    if (callback !== undefined) {
+      callback("filename", totalDocChunks, totalDocChunksUpserted, true);
     }
   } catch (error) {
     console.error("Error setting up pipline:", error);
@@ -89,6 +106,9 @@ async function processDocument(
   const splitter = new RecursiveCharacterTextSplitter();
 
   const documentChunks = await splitter.splitText(doc.pageContent);
+
+  totalDocChunks = documentChunks.length;
+  totalDocChunksUpserted = 0;
 
   const filename = getFilename(doc.metadata.source);
 
@@ -160,6 +180,11 @@ async function processOneBatch(
 
   await index.upsert(vectorBatch);
   console.log("upserting index.. :)");
+  totalDocChunksUpserted += vectorBatch.length;
+
+  if (callback !== undefined) {
+    callback(filename, totalDocChunks, totalDocChunksUpserted, false);
+  }
 
   vectorBatch = [];
 }

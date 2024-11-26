@@ -1,68 +1,67 @@
+import { NextApiResponse } from "next";
+import { Pinecone } from "@pinecone-database/pinecone";
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
-import { NextApiRequest, NextApiResponse } from "next";
 import { TextLoader } from "langchain/document_loaders/fs/text";
-import { Pinecone } from "@pinecone-database/pinecone";
-import { updateVectorDB } from "@/utils";
 import { NameArraySchema } from "@/lib/validators/name";
-import { NextResponse } from "next/server";
+import { updateVectorDB } from "@/utils";
 
 export async function POST(req: Request, res: NextApiResponse) {
-  if (!req.body) return;
+  const encoder = new TextEncoder();
 
-  const body = await req.json();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const body = await req.json();
+        const { indexName, namespace } = body;
 
-  try {
-    const { indexName, namespace } = body;
-    const parsedIndexName = NameArraySchema.parse(indexName);
-    const parsedNamespace = NameArraySchema.parse(namespace);
+        // Load documents (adjust path and loaders as needed)
+        const loader = new DirectoryLoader("src/documents", {
+          ".pdf": (path: string) => new PDFLoader(path, { splitPages: false }),
+          ".txt": (path: string) => new TextLoader(path),
+        });
+        const docs = await loader.load();
 
-    await handleUpload(parsedIndexName, parsedNamespace, res);
+        // Initialize Pinecone client
+        const client = new Pinecone({
+          apiKey: process.env.PINECONE_API_KEY!,
+        });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
-  }
-}
+        const parsedIndexName = NameArraySchema.parse(indexName);
+        const parsedNamespace = NameArraySchema.parse(namespace);
 
-async function handleUpload(
-  indexName: string,
-  namespace: string,
-  res: NextApiResponse
-) {
-  const loader = new DirectoryLoader("src/documents", {
-    ".pdf": (path: string) => new PDFLoader(path, { splitPages: false }),
-    ".txt": (path: string) => new TextLoader(path),
-  });
+        await updateVectorDB(
+          client,
+          parsedIndexName,
+          parsedNamespace,
+          docs,
+          (filename, totalChunks, chunksUpserted, isComplete) => {
+            const message =
+              JSON.stringify({
+                filename,
+                totalChunks,
+                chunksUpserted,
+                isComplete,
+              }) + "\n";
 
-  const docs = await loader.load();
+            controller.enqueue(encoder.encode(message));
 
-  const client = new Pinecone({
-    apiKey: process.env.PINECONE_API_KEY!,
-  });
-
-  await updateVectorDB(
-    client,
-    indexName,
-    namespace,
-    docs,
-    (filename, totalChunks, chunksUpserted, isComplete) => {
-      if (!isComplete) {
-        res.write(
-          JSON.stringify({
-            filename,
-            totalChunks,
-            chunksUpserted,
-            isComplete,
-          })
+            if (isComplete) {
+              controller.close();
+            }
+          }
         );
-        return res.json("");
-      } else {
-        res.end();
+      } catch (error) {
+        controller.error(
+          error instanceof Error ? error.message : "Unknown error"
+        );
       }
-    }
-  );
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 }

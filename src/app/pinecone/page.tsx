@@ -22,7 +22,14 @@ const VectorDBPage = ({}: Props) => {
   const [indexName, setIndexName] = useState("");
   const [namespace, setNamespace] = useState("");
 
+  const [filename, setFilename] = useState("");
+  const [progress, setProgress] = useState(0);
+
   const onStartUpload = async () => {
+    setProgress(0);
+    setFilename("");
+    setIsUploading(true);
+
     const response = await fetch("api/update-database", {
       method: "POST",
       headers: {
@@ -34,8 +41,61 @@ const VectorDBPage = ({}: Props) => {
       }),
     });
 
-    // await processStreamedProgress(response);
+    if (!response.ok) {
+      console.log("no response from call!");
+    }
+
+    await processStreamedProgress(response);
   };
+
+  async function processStreamedProgress(response: Response) {
+    console.log("Processing streamed progress"); // Add this
+    const reader = response.body?.getReader();
+    if (!reader) return;
+
+    try {
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          setIsUploading(false);
+          break;
+        }
+
+        buffer += new TextDecoder().decode(value);
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const update = JSON.parse(line);
+              const { filename, totalChunks, chunksUpserted, isComplete } =
+                update;
+
+              if (totalChunks > 0) {
+                const currentProgress = (chunksUpserted / totalChunks) * 100;
+                setProgress(currentProgress);
+                setFilename(`${filename} [${chunksUpserted}/${totalChunks}]`);
+              }
+
+              if (isComplete) {
+                setIsUploading(false);
+              }
+            } catch (parseError) {
+              console.error("Parsing error:", parseError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Streaming error:", error);
+      setIsUploading(false);
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   return (
     <main className="flex flex-col items-center p-24">
       <Card>
@@ -97,9 +157,9 @@ const VectorDBPage = ({}: Props) => {
           </div>
           {isUploading && (
             <div className="mt-4">
-              <Label>File Name:</Label>
+              <Label>File Name: {filename}</Label>
               <div className="flex flex-row items-center gap-4">
-                <Progress value={80} />
+                <Progress value={progress} />
                 <LucideLoader2 className="stroke-red-300 animate-spin" />
               </div>
             </div>
